@@ -1,16 +1,18 @@
-# GdayRedis
+# ShipIt
 
-[![CI](https://github.com/its-the-vibe/GdayRedis/actions/workflows/ci.yaml/badge.svg)](https://github.com/its-the-vibe/GdayRedis/actions/workflows/ci.yaml)
+[![CI](https://github.com/its-the-vibe/ShipIt/actions/workflows/ci.yaml/badge.svg)](https://github.com/its-the-vibe/ShipIt/actions/workflows/ci.yaml)
 
-A production-ready "Hello World" Go service with Redis integration, containerised using a distroless Docker image.
+A Go service that consumes GitHub webhook `package` events from a Redis pub/sub channel and dispatches continuous deployment (CD) commands to a Redis list.
 
-## Features
+## How It Works
 
-- Prints **Gday World** on startup
-- Pings a Redis server at a configurable interval
-- Minimal distroless runtime image
-- Read-only container filesystem
-- Configuration via `config.yaml` + `REDIS_PASSWORD` environment variable
+1. **Subscribe** – the service subscribes to a configurable Redis pub/sub channel where GitHub webhook `package` events are published.
+2. **Filter** – incoming messages are filtered against the following criteria:
+   - `action == "published"`
+   - `package.package_type == "container"`
+   - `package.package_version.container_metadata.tag.name == "latest"`
+3. **Whitelist** – the repository full name (`org/repo`) is checked against an allowlist defined in `config.yaml`.
+4. **Publish** – matching messages are pushed onto a configurable Redis list as a deployment command.
 
 ## Prerequisites
 
@@ -27,7 +29,7 @@ A production-ready "Hello World" Go service with Redis integration, containerise
 cp config.example.yaml config.yaml
 cp .env.example .env
 
-# 2. Edit config.yaml to point to your Redis host/port
+# 2. Edit config.yaml: set Redis host/port, channel/list names, and whitelist repos
 # 3. Set REDIS_PASSWORD in .env
 
 # 4. Build and run
@@ -48,7 +50,7 @@ make docker-up
 
 | File | Purpose |
 |------|---------|
-| `config.yaml` | Redis host/port and ping interval (git-ignored) |
+| `config.yaml` | Redis connection, channel/list names, and whitelist (git-ignored) |
 | `config.example.yaml` | Template – copy to `config.yaml` |
 | `.env` | `REDIS_PASSWORD` secret (git-ignored) |
 | `.env.example` | Template – copy to `.env` |
@@ -59,15 +61,33 @@ make docker-up
 redis:
   host: localhost
   port: 6379
+  # password is loaded from REDIS_PASSWORD env var
 
-ping_interval_seconds: 5
+# Redis pub/sub channel to subscribe to
+channel: github-webhooks
+
+# Redis list to push deployment commands onto
+deploy_list: deployments
+
+# Identifier included in each deployment message as "target-queue"
+target_queue: deploy-queue
+
+# Repositories allowed to trigger deployments
+whitelist:
+  - your-org/your-repo
+```
+
+### `.env` options
+
+```
+REDIS_PASSWORD=your_redis_password_here
 ```
 
 ## Makefile targets
 
 | Target | Description |
 |--------|-------------|
-| `make build` | Compile binary to `bin/gdayredis` |
+| `make build` | Compile binary to `bin/shipit` |
 | `make run` | Build and run locally |
 | `make test` | Run Go tests |
 | `make lint` | Run `go vet` |
@@ -75,12 +95,46 @@ ping_interval_seconds: 5
 | `make docker-up` | Start via Docker Compose |
 | `make docker-down` | Stop Docker Compose stack |
 
+## Example Webhook Event
+
+The service expects messages on the configured Redis channel to be JSON-encoded GitHub [`package` webhook](https://docs.github.com/en/webhooks/webhook-events-and-payloads#package) payloads.  A minimal triggering example:
+
+```json
+{
+  "action": "published",
+  "package": {
+    "package_type": "container",
+    "package_version": {
+      "container_metadata": {
+        "tag": {
+          "name": "latest"
+        }
+      }
+    }
+  },
+  "repository": {
+    "full_name": "your-org/your-repo"
+  }
+}
+```
+
+## Deployment Queue Message Format
+
+Messages pushed to the deployment Redis list (`deploy_list`) follow this structure:
+
+```json
+{
+  "restart": "<org>/<repo>",
+  "target-queue": "<target_queue value from config>"
+}
+```
+
 ## Project Layout
 
 ```
 .
-├── cmd/gdayredis/   # Application entry point
-├── .github/workflows/ci.yaml
+├── cmd/shipit/          # Application entry point + tests
+├── .github/workflows/
 ├── config.example.yaml
 ├── .env.example
 ├── Dockerfile
