@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
@@ -28,8 +26,8 @@ type Config struct {
 	DeployList string `mapstructure:"deploy_list"`
 	// TargetQueue is included in each deployment message as "target-queue".
 	TargetQueue string `mapstructure:"target_queue"`
-	// WhitelistFile is the path to a file containing allowed "org/repo" entries.
-	WhitelistFile string `mapstructure:"whitelist_file"`
+	// Whitelist is the list of allowed "org/repo" repositories.
+	Whitelist []string `mapstructure:"whitelist"`
 }
 
 // WebhookPayload represents the relevant parts of a GitHub package webhook event.
@@ -67,7 +65,6 @@ func loadConfig() (*Config, error) {
 	viper.SetDefault("channel", "github-webhooks")
 	viper.SetDefault("deploy_list", "deployments")
 	viper.SetDefault("target_queue", "deploy-queue")
-	viper.SetDefault("whitelist_file", "whitelist.txt")
 
 	viper.AutomaticEnv()
 	viper.BindEnv("redis.password", "REDIS_PASSWORD") //nolint:errcheck
@@ -86,25 +83,13 @@ func loadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
-// loadWhitelist reads a newline-delimited file of "org/repo" entries and returns
-// a set of allowed repository full names.
-func loadWhitelist(path string) (map[string]struct{}, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening whitelist file %q: %w", path, err)
+// buildWhitelistSet converts the slice of repos from config into a fast-lookup set.
+func buildWhitelistSet(repos []string) map[string]struct{} {
+	wl := make(map[string]struct{}, len(repos))
+	for _, r := range repos {
+		wl[r] = struct{}{}
 	}
-	defer f.Close()
-
-	wl := make(map[string]struct{})
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		wl[line] = struct{}{}
-	}
-	return wl, scanner.Err()
+	return wl
 }
 
 // matchesFilter returns true when the payload satisfies the deployment trigger criteria:
@@ -166,10 +151,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	whitelist, err := loadWhitelist(cfg.WhitelistFile)
-	if err != nil {
-		log.Fatalf("failed to load whitelist: %v", err)
-	}
+	whitelist := buildWhitelistSet(cfg.Whitelist)
 	log.Printf("loaded %d repositories from whitelist", len(whitelist))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port)

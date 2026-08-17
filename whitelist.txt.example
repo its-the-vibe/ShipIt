@@ -1,4 +1,0 @@
-# Whitelist of repositories that are allowed to trigger deployments.
-# One "org/repo" entry per line.  Lines starting with "#" and blank lines are ignored.
-# Copy this file to whitelist.txt and add the repositories you want to deploy.
-its-the-vibe/ShipIt

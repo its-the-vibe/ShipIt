@@ -12,5 +12,6 @@ deploy_list: deployments
 # Identifier included in each deployment message as "target-queue"
 target_queue: deploy-queue
 
-# Path to the repository whitelist file (one "org/repo" entry per line)
-whitelist_file: whitelist.txt
+# Repositories allowed to trigger deployments (one "org/repo" entry per list item)
+whitelist:
+  - your-org/your-repo

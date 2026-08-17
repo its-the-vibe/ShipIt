@@ -11,7 +11,7 @@ A Go service that consumes GitHub webhook `package` events from a Redis pub/sub 
    - `action == "published"`
    - `package.package_type == "container"`
    - `package.package_version.container_metadata.tag.name == "latest"`
-3. **Whitelist** – the repository full name (`org/repo`) is checked against a configurable allowlist file.
+3. **Whitelist** – the repository full name (`org/repo`) is checked against an allowlist defined in `config.yaml`.
 4. **Publish** – matching messages are pushed onto a configurable Redis list as a deployment command.
 
 ## Prerequisites
@@ -28,13 +28,11 @@ A Go service that consumes GitHub webhook `package` events from a Redis pub/sub 
 # 1. Copy and customise configuration
 cp config.example.yaml config.yaml
 cp .env.example .env
-cp whitelist.txt.example whitelist.txt
 
-# 2. Edit config.yaml to point to your Redis host/port and set channel/list names
+# 2. Edit config.yaml: set Redis host/port, channel/list names, and whitelist repos
 # 3. Set REDIS_PASSWORD in .env
-# 4. Add repositories to whitelist.txt
 
-# 5. Build and run
+# 4. Build and run
 make run
 ```
 
@@ -43,8 +41,7 @@ make run
 ```bash
 cp config.example.yaml config.yaml
 cp .env.example .env
-cp whitelist.txt.example whitelist.txt
-# Edit config.yaml, .env, and whitelist.txt
+# Edit config.yaml and .env
 
 make docker-up
 ```
@@ -53,12 +50,10 @@ make docker-up
 
 | File | Purpose |
 |------|---------|
-| `config.yaml` | Redis connection, channel/list names, whitelist path (git-ignored) |
+| `config.yaml` | Redis connection, channel/list names, and whitelist (git-ignored) |
 | `config.example.yaml` | Template – copy to `config.yaml` |
 | `.env` | `REDIS_PASSWORD` secret (git-ignored) |
 | `.env.example` | Template – copy to `.env` |
-| `whitelist.txt` | Allowed `org/repo` entries (git-ignored) |
-| `whitelist.txt.example` | Template – copy to `whitelist.txt` |
 
 ### `config.yaml` options
 
@@ -77,23 +72,15 @@ deploy_list: deployments
 # Identifier included in each deployment message as "target-queue"
 target_queue: deploy-queue
 
-# Path to the repository whitelist file
-whitelist_file: whitelist.txt
+# Repositories allowed to trigger deployments
+whitelist:
+  - your-org/your-repo
 ```
 
 ### `.env` options
 
 ```
 REDIS_PASSWORD=your_redis_password_here
-```
-
-### `whitelist.txt` format
-
-One `org/repo` entry per line; lines starting with `#` and blank lines are ignored:
-
-```
-# allowed repositories
-your-org/your-repo
 ```
 
 ## Makefile targets
@@ -149,7 +136,6 @@ Messages pushed to the deployment Redis list (`deploy_list`) follow this structu
 ├── cmd/gdayredis/       # Application entry point + tests
 ├── .github/workflows/
 ├── config.example.yaml
-├── whitelist.txt.example
 ├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
