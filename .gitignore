@@ -30,6 +30,9 @@ go.work.sum
 # config file (use config.example.yaml as template)
 config.yaml
 
+# whitelist of repositories (use whitelist.txt.example as template)
+whitelist.txt
+
 # build output
 bin/
 

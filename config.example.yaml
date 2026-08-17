@@ -3,5 +3,14 @@ redis:
   port: 6379
   # password is loaded from the REDIS_PASSWORD environment variable (see .env)
 
-# How often (in seconds) to ping the Redis server
-ping_interval_seconds: 5
+# Redis pub/sub channel to subscribe to for incoming GitHub webhook events
+channel: github-webhooks
+
+# Redis list to push deployment commands onto
+deploy_list: deployments
+
+# Identifier included in each deployment message as "target-queue"
+target_queue: deploy-queue
+
+# Path to the repository whitelist file (one "org/repo" entry per line)
+whitelist_file: whitelist.txt
