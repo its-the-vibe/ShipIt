@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
@@ -92,6 +93,13 @@ func buildWhitelistSet(repos []string) map[string]struct{} {
 	return wl
 }
 
+func repositoryName(fullName string) string {
+	if ownerSeparator := strings.LastIndexByte(fullName, '/'); ownerSeparator >= 0 {
+		return fullName[ownerSeparator+1:]
+	}
+	return fullName
+}
+
 // matchesFilter returns true when the payload satisfies the deployment trigger criteria:
 //
 //	action == "published"
@@ -99,7 +107,7 @@ func buildWhitelistSet(repos []string) map[string]struct{} {
 //	AND package.package_version.container_metadata.tag.name == "latest"
 func matchesFilter(p *WebhookPayload) bool {
 	return p.Action == "published" &&
-		p.Package.PackageType == "container" &&
+		p.Package.PackageType == "CONTAINER" &&
 		p.Package.PackageVersion.ContainerMetadata.Tag.Name == "latest"
 }
 
@@ -121,14 +129,14 @@ func processMessage(ctx context.Context, rdb *redis.Client, rawMsg string, white
 		return
 	}
 
-	repo := payload.Repository.FullName
-	if _, ok := whitelist[repo]; !ok {
-		log.Printf("repository %q is not in the whitelist, skipping", repo)
+	fullRepoName := payload.Repository.FullName
+	if _, ok := whitelist[fullRepoName]; !ok {
+		log.Printf("repository %q is not in the whitelist, skipping", fullRepoName)
 		return
 	}
 
 	deploy := DeployMessage{
-		Restart:     repo,
+		Restart:     repositoryName(fullRepoName),
 		TargetQueue: cfg.TargetQueue,
 	}
 	data, err := json.Marshal(deploy)
@@ -142,7 +150,7 @@ func processMessage(ctx context.Context, rdb *redis.Client, rawMsg string, white
 		return
 	}
 
-	log.Printf("queued deployment for %q -> list=%q target-queue=%q", repo, cfg.DeployList, cfg.TargetQueue)
+	log.Printf("queued deployment for %q -> list=%q target-queue=%q", fullRepoName, cfg.DeployList, cfg.TargetQueue)
 }
 
 func main() {
@@ -163,6 +171,10 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("failed to connect to Redis: %v", err)
+	}
 
 	pubsub := rdb.Subscribe(ctx, cfg.Channel)
 	defer pubsub.Close()

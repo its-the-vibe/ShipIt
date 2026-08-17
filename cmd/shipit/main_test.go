@@ -15,7 +15,7 @@ func TestMatchesFilter(t *testing.T) {
 			payload: func() WebhookPayload {
 				var p WebhookPayload
 				p.Action = "published"
-				p.Package.PackageType = "container"
+				p.Package.PackageType = "CONTAINER"
 				p.Package.PackageVersion.ContainerMetadata.Tag.Name = "latest"
 				return p
 			}(),
@@ -26,7 +26,7 @@ func TestMatchesFilter(t *testing.T) {
 			payload: func() WebhookPayload {
 				var p WebhookPayload
 				p.Action = "updated"
-				p.Package.PackageType = "container"
+				p.Package.PackageType = "CONTAINER"
 				p.Package.PackageVersion.ContainerMetadata.Tag.Name = "latest"
 				return p
 			}(),
@@ -48,7 +48,7 @@ func TestMatchesFilter(t *testing.T) {
 			payload: func() WebhookPayload {
 				var p WebhookPayload
 				p.Action = "published"
-				p.Package.PackageType = "container"
+				p.Package.PackageType = "CONTAINER"
 				p.Package.PackageVersion.ContainerMetadata.Tag.Name = "v1.2.3"
 				return p
 			}(),
@@ -83,5 +83,23 @@ func TestBuildWhitelistSetEmpty(t *testing.T) {
 	wl := buildWhitelistSet(nil)
 	if len(wl) != 0 {
 		t.Errorf("expected empty set, got %d entries", len(wl))
+	}
+}
+
+func TestRepositoryName(t *testing.T) {
+	tests := []struct {
+		fullName string
+		want     string
+	}{
+		{fullName: "its-the-vibe/SlashVibeRepo", want: "SlashVibeRepo"},
+		{fullName: "SlashVibeRepo", want: "SlashVibeRepo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fullName, func(t *testing.T) {
+			if got := repositoryName(tt.fullName); got != tt.want {
+				t.Errorf("repositoryName(%q) = %q, want %q", tt.fullName, got, tt.want)
+			}
+		})
 	}
 }

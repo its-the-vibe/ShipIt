@@ -9,7 +9,7 @@ A Go service that consumes GitHub webhook `package` events from a Redis pub/sub 
 1. **Subscribe** – the service subscribes to a configurable Redis pub/sub channel where GitHub webhook `package` events are published.
 2. **Filter** – incoming messages are filtered against the following criteria:
    - `action == "published"`
-   - `package.package_type == "container"`
+   - `package.package_type == "CONTAINER"`
    - `package.package_version.container_metadata.tag.name == "latest"`
 3. **Whitelist** – the repository full name (`org/repo`) is checked against an allowlist defined in `config.yaml`.
 4. **Publish** – matching messages are pushed onto a configurable Redis list as a deployment command.
@@ -124,7 +124,7 @@ Messages pushed to the deployment Redis list (`deploy_list`) follow this structu
 
 ```json
 {
-  "restart": "<org>/<repo>",
+  "restart": "<repo>",
   "target-queue": "<target_queue value from config>"
 }
 ```
