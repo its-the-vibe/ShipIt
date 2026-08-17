@@ -87,7 +87,7 @@ REDIS_PASSWORD=your_redis_password_here
 
 | Target | Description |
 |--------|-------------|
-| `make build` | Compile binary to `bin/gdayredis` |
+| `make build` | Compile binary to `bin/shipit` |
 | `make run` | Build and run locally |
 | `make test` | Run Go tests |
 | `make lint` | Run `go vet` |
@@ -133,7 +133,7 @@ Messages pushed to the deployment Redis list (`deploy_list`) follow this structu
 
 ```
 .
-├── cmd/gdayredis/       # Application entry point + tests
+├── cmd/shipit/          # Application entry point + tests
 ├── .github/workflows/
 ├── config.example.yaml
 ├── .env.example

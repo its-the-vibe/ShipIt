@@ -1,4 +1,4 @@
-module github.com/its-the-vibe/GdayRedis
+module github.com/its-the-vibe/ShipIt
 
 go 1.26.6
 
