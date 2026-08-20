@@ -103,3 +103,41 @@ func TestRepositoryName(t *testing.T) {
 		})
 	}
 }
+
+
+func TestMatchesCustomFilter(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload CustomImagePayload
+		want    bool
+	}{
+		{
+			name:    "matches all criteria",
+			payload: CustomImagePayload{Event: customEventName, Ref: customRefName},
+			want:    true,
+		},
+		{
+			name:    "wrong event",
+			payload: CustomImagePayload{Event: "other_event", Ref: customRefName},
+			want:    false,
+		},
+		{
+			name:    "wrong ref",
+			payload: CustomImagePayload{Event: customEventName, Ref: "feature-branch"},
+			want:    false,
+		},
+		{
+			name:    "both wrong",
+			payload: CustomImagePayload{Event: "other_event", Ref: "feature-branch"},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := matchesCustomFilter(&tt.payload); got != tt.want {
+				t.Errorf("matchesCustomFilter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

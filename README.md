@@ -2,15 +2,19 @@
 
 [![CI](https://github.com/its-the-vibe/ShipIt/actions/workflows/ci.yaml/badge.svg)](https://github.com/its-the-vibe/ShipIt/actions/workflows/ci.yaml)
 
-A Go service that consumes GitHub webhook `package` events from a Redis pub/sub channel and dispatches continuous deployment (CD) commands to a Redis list.
+A Go service that consumes GitHub webhook `package` events (and optionally custom Docker image push events) from Redis pub/sub channels and dispatches continuous deployment (CD) commands to a Redis list.
 
 ## How It Works
 
-1. **Subscribe** – the service subscribes to a configurable Redis pub/sub channel where GitHub webhook `package` events are published.
-2. **Filter** – incoming messages are filtered against the following criteria:
+1. **Subscribe** – the service subscribes to a configurable Redis pub/sub channel where GitHub webhook `package` events are published.  Optionally, it also subscribes to a separate channel for custom Docker image push payloads.
+2. **Filter** – incoming GitHub `package` messages are filtered against the following criteria:
    - `action == "published"`
    - `package.package_type == "CONTAINER"`
    - `package.package_version.container_metadata.tag.name == "latest"`
+
+   Incoming custom image push messages are filtered against:
+   - `event == "image_pushed"`
+   - `ref == "main"`
 3. **Whitelist** – the repository full name (`org/repo`) is checked against an allowlist defined in `config.yaml`.
 4. **Publish** – matching messages are pushed onto a configurable Redis list as a deployment command.
 
@@ -66,6 +70,9 @@ redis:
 # Redis pub/sub channel to subscribe to
 channel: github-webhooks
 
+# Optional: Redis pub/sub channel for custom Docker image push payloads
+# custom_channel: custom-image-pushes
+
 # Redis list to push deployment commands onto
 deploy_list: deployments
 
@@ -118,9 +125,29 @@ The service expects messages on the configured Redis channel to be JSON-encoded 
 }
 ```
 
+## Custom Image Push Payload
+
+When `custom_channel` is configured, the service also accepts custom Docker image push payloads on that channel.  A minimal triggering example:
+
+```json
+{
+  "event": "image_pushed",
+  "repository": "your-org/your-repo",
+  "ref": "main",
+  "sha": "abc1234",
+  "image": "ghcr.io/your-org/your-repo",
+  "tags": ["latest"]
+}
+```
+
+**Filtering rules for custom payloads:**
+- `event` must be `"image_pushed"`
+- `ref` must be `"main"`
+- `repository` must be present in the `whitelist`
+
 ## Deployment Queue Message Format
 
-Messages pushed to the deployment Redis list (`deploy_list`) follow this structure:
+Messages pushed to the deployment Redis list (`deploy_list`) follow this structure (identical for both payload types):
 
 ```json
 {

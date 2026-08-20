@@ -14,6 +14,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	// customEventName is the event field value that identifies a custom Docker image push payload.
+	customEventName = "image_pushed"
+	// customRefName is the ref value required to trigger a deployment from a custom payload.
+	customRefName = "main"
+)
+
 // Config holds the application configuration.
 type Config struct {
 	Redis struct {
@@ -23,6 +30,8 @@ type Config struct {
 	}
 	// Channel is the Redis pub/sub channel to subscribe to.
 	Channel string
+	// CustomChannel is an optional Redis pub/sub channel for custom Docker image push payloads.
+	CustomChannel string `mapstructure:"custom_channel"`
 	// DeployList is the Redis list to push deployment messages onto.
 	DeployList string `mapstructure:"deploy_list"`
 	// TargetQueue is included in each deployment message as "target-queue".
@@ -53,6 +62,61 @@ type WebhookPayload struct {
 type DeployMessage struct {
 	Restart     string `json:"restart"`
 	TargetQueue string `json:"target-queue"`
+}
+
+// CustomImagePayload represents a custom Docker image push event payload.
+type CustomImagePayload struct {
+	Event      string   `json:"event"`
+	Repository string   `json:"repository"`
+	Ref        string   `json:"ref"`
+	SHA        string   `json:"sha"`
+	Image      string   `json:"image"`
+	Tags       []string `json:"tags"`
+}
+
+// matchesCustomFilter returns true when the custom payload should trigger a deployment:
+//
+//	event == "image_pushed"
+//	AND ref == "main"
+func matchesCustomFilter(p *CustomImagePayload) bool {
+	return p.Event == customEventName && p.Ref == customRefName
+}
+
+// processCustomMessage parses a raw JSON custom image push payload, applies the filter and
+// whitelist, and publishes a deployment command to the configured Redis list if all checks pass.
+func processCustomMessage(ctx context.Context, rdb *redis.Client, rawMsg string, whitelist map[string]struct{}, cfg *Config) {
+	var payload CustomImagePayload
+	if err := json.Unmarshal([]byte(rawMsg), &payload); err != nil {
+		log.Printf("failed to parse custom image payload: %v", err)
+		return
+	}
+
+	if !matchesCustomFilter(&payload) {
+		log.Printf("skipping custom event: event=%q ref=%q", payload.Event, payload.Ref)
+		return
+	}
+
+	if _, ok := whitelist[payload.Repository]; !ok {
+		log.Printf("repository %q is not in the whitelist, skipping", payload.Repository)
+		return
+	}
+
+	deploy := DeployMessage{
+		Restart:     repositoryName(payload.Repository),
+		TargetQueue: cfg.TargetQueue,
+	}
+	data, err := json.Marshal(deploy)
+	if err != nil {
+		log.Printf("failed to marshal deploy message: %v", err)
+		return
+	}
+
+	if err := rdb.RPush(ctx, cfg.DeployList, string(data)).Err(); err != nil {
+		log.Printf("failed to publish deploy message: %v", err)
+		return
+	}
+
+	log.Printf("queued deployment for %q -> list=%q target-queue=%q", payload.Repository, cfg.DeployList, cfg.TargetQueue)
 }
 
 func loadConfig() (*Config, error) {
@@ -182,6 +246,15 @@ func main() {
 	log.Printf("subscribed to Redis channel %q at %s", cfg.Channel, addr)
 	log.Printf("deployment messages will be published to list %q", cfg.DeployList)
 
+	var customPubsub *redis.PubSub
+	var customCh <-chan *redis.Message
+	if cfg.CustomChannel != "" {
+		customPubsub = rdb.Subscribe(ctx, cfg.CustomChannel)
+		defer customPubsub.Close()
+		customCh = customPubsub.Channel()
+		log.Printf("subscribed to custom Redis channel %q at %s", cfg.CustomChannel, addr)
+	}
+
 	ch := pubsub.Channel()
 	for {
 		select {
@@ -194,6 +267,12 @@ func main() {
 				return
 			}
 			processMessage(ctx, rdb, msg.Payload, whitelist, cfg)
+		case msg, ok := <-customCh:
+			if !ok {
+				log.Println("Redis custom channel closed, shutting down")
+				return
+			}
+			processCustomMessage(ctx, rdb, msg.Payload, whitelist, cfg)
 		}
 	}
 }
