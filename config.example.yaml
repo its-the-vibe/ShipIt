@@ -6,6 +6,10 @@ redis:
 # Redis pub/sub channel to subscribe to for incoming GitHub webhook events
 channel: github-webhooks
 
+# Optional: Redis pub/sub channel for custom Docker image push payloads
+# Leave unset (or empty) to disable custom payload handling
+# custom_channel: custom-image-pushes
+
 # Redis list to push deployment commands onto
 deploy_list: deployments
 
