@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -104,7 +105,6 @@ func TestRepositoryName(t *testing.T) {
 	}
 }
 
-
 func TestMatchesCustomFilter(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -139,5 +139,26 @@ func TestMatchesCustomFilter(t *testing.T) {
 				t.Errorf("matchesCustomFilter() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCustomImagePayloadDecodesStringTags(t *testing.T) {
+	rawPayload := `{
+		"event": "image_pushed",
+		"repository": "its-the-vibe/OrderlyQueue",
+		"ref": "main",
+		"sha": "be877120899dd0f86e7db57d8f545a47e8a046b4",
+		"image": "ghcr.io/its-the-vibe/OrderlyQueue",
+		"tags": "ghcr.io/its-the-vibe/orderlyqueue:main\nghcr.io/its-the-vibe/orderlyqueue:latest\nghcr.io/its-the-vibe/orderlyqueue:sha-be87712"
+	}`
+
+	var payload CustomImagePayload
+	if err := json.Unmarshal([]byte(rawPayload), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	wantTags := "ghcr.io/its-the-vibe/orderlyqueue:main\nghcr.io/its-the-vibe/orderlyqueue:latest\nghcr.io/its-the-vibe/orderlyqueue:sha-be87712"
+	if payload.Tags != wantTags {
+		t.Errorf("Tags = %q, want %q", payload.Tags, wantTags)
 	}
 }

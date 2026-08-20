@@ -66,12 +66,12 @@ type DeployMessage struct {
 
 // CustomImagePayload represents a custom Docker image push event payload.
 type CustomImagePayload struct {
-	Event      string   `json:"event"`
-	Repository string   `json:"repository"`
-	Ref        string   `json:"ref"`
-	SHA        string   `json:"sha"`
-	Image      string   `json:"image"`
-	Tags       []string `json:"tags"`
+	Event      string `json:"event"`
+	Repository string `json:"repository"`
+	Ref        string `json:"ref"`
+	SHA        string `json:"sha"`
+	Image      string `json:"image"`
+	Tags       string `json:"tags"`
 }
 
 // matchesCustomFilter returns true when the custom payload should trigger a deployment:
