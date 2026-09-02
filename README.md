@@ -152,9 +152,14 @@ Messages pushed to the deployment Redis list (`deploy_list`) follow this structu
 ```json
 {
   "restart": "<repo>",
-  "target-queue": "<target_queue value from config>"
+  "target-queue": "<target_queue value from config>",
+  "metadata": {
+    "git_commit_sha": "<sha from custom image push payload, when present>"
+  }
 }
 ```
+
+`metadata` is optional and currently populated for custom image push payloads when `sha` is present.
 
 ## Project Layout
 
