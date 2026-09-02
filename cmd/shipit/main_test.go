@@ -162,3 +162,35 @@ func TestCustomImagePayloadDecodesStringTags(t *testing.T) {
 		t.Errorf("Tags = %q, want %q", payload.Tags, wantTags)
 	}
 }
+
+func TestBuildDeployMessageWithoutMetadata(t *testing.T) {
+	deploy := buildDeployMessage("its-the-vibe/TurnItOffAndOnAgain", "deploy-queue", "")
+	data, err := json.Marshal(deploy)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	got := string(data)
+	want := `{"restart":"TurnItOffAndOnAgain","target-queue":"deploy-queue"}`
+	if got != want {
+		t.Errorf("deploy message = %s, want %s", got, want)
+	}
+}
+
+func TestBuildDeployMessageWithGitCommitSHAMetadata(t *testing.T) {
+	deploy := buildDeployMessage(
+		"its-the-vibe/TurnItOffAndOnAgain",
+		"deploy-queue",
+		"77e47ec39a0230c295a7fbbb1d4f12139ed8e586",
+	)
+	data, err := json.Marshal(deploy)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	got := string(data)
+	want := `{"restart":"TurnItOffAndOnAgain","target-queue":"deploy-queue","metadata":{"git_commit_sha":"77e47ec39a0230c295a7fbbb1d4f12139ed8e586"}}`
+	if got != want {
+		t.Errorf("deploy message = %s, want %s", got, want)
+	}
+}

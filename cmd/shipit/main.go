@@ -62,6 +62,12 @@ type WebhookPayload struct {
 type DeployMessage struct {
 	Restart     string `json:"restart"`
 	TargetQueue string `json:"target-queue"`
+	Metadata    *DeployMetadata `json:"metadata,omitempty"`
+}
+
+// DeployMetadata contains optional metadata attached to deployment messages.
+type DeployMetadata struct {
+	GitCommitSHA string `json:"git_commit_sha,omitempty"`
 }
 
 // CustomImagePayload represents a custom Docker image push event payload.
@@ -101,10 +107,7 @@ func processCustomMessage(ctx context.Context, rdb *redis.Client, rawMsg string,
 		return
 	}
 
-	deploy := DeployMessage{
-		Restart:     repositoryName(payload.Repository),
-		TargetQueue: cfg.TargetQueue,
-	}
+	deploy := buildDeployMessage(payload.Repository, cfg.TargetQueue, payload.SHA)
 	data, err := json.Marshal(deploy)
 	if err != nil {
 		log.Printf("failed to marshal deploy message: %v", err)
@@ -199,10 +202,7 @@ func processMessage(ctx context.Context, rdb *redis.Client, rawMsg string, white
 		return
 	}
 
-	deploy := DeployMessage{
-		Restart:     repositoryName(fullRepoName),
-		TargetQueue: cfg.TargetQueue,
-	}
+	deploy := buildDeployMessage(fullRepoName, cfg.TargetQueue, "")
 	data, err := json.Marshal(deploy)
 	if err != nil {
 		log.Printf("failed to marshal deploy message: %v", err)
@@ -215,6 +215,19 @@ func processMessage(ctx context.Context, rdb *redis.Client, rawMsg string, white
 	}
 
 	log.Printf("queued deployment for %q -> list=%q target-queue=%q", fullRepoName, cfg.DeployList, cfg.TargetQueue)
+}
+
+func buildDeployMessage(fullRepoName, targetQueue, gitCommitSHA string) DeployMessage {
+	deploy := DeployMessage{
+		Restart:     repositoryName(fullRepoName),
+		TargetQueue: targetQueue,
+	}
+	if gitCommitSHA != "" {
+		deploy.Metadata = &DeployMetadata{
+			GitCommitSHA: gitCommitSHA,
+		}
+	}
+	return deploy
 }
 
 func main() {
