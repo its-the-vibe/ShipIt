@@ -122,9 +122,9 @@ func TestMatchesCustomFilter(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "wrong ref",
+			name:    "feature ref",
 			payload: CustomImagePayload{Event: customEventName, Ref: "feature-branch"},
-			want:    false,
+			want:    true,
 		},
 		{
 			name:    "both wrong",

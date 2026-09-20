@@ -60,8 +60,8 @@ type WebhookPayload struct {
 
 // DeployMessage is the message published to the deployment Redis list.
 type DeployMessage struct {
-	Restart     string `json:"restart"`
-	TargetQueue string `json:"target-queue"`
+	Restart     string          `json:"restart"`
+	TargetQueue string          `json:"target-queue"`
 	Metadata    *DeployMetadata `json:"metadata,omitempty"`
 }
 
@@ -85,7 +85,9 @@ type CustomImagePayload struct {
 //	event == "image_pushed"
 //	AND ref == "main"
 func matchesCustomFilter(p *CustomImagePayload) bool {
-	return p.Event == customEventName && p.Ref == customRefName
+	// return p.Event == customEventName && p.Ref == customRefName
+	// actually, we want to trigger deployments for any ref as long as the event matches
+	return p.Event == customEventName
 }
 
 // processCustomMessage parses a raw JSON custom image push payload, applies the filter and
