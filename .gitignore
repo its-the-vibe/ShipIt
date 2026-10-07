@@ -37,4 +37,4 @@ bin/
 
 # Editor/IDE
 # .idea/
-# .vscode/
+.vscode/

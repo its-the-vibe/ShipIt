@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -149,7 +150,11 @@ func TestCustomImagePayloadDecodesStringTags(t *testing.T) {
 		"ref": "main",
 		"sha": "be877120899dd0f86e7db57d8f545a47e8a046b4",
 		"image": "ghcr.io/its-the-vibe/OrderlyQueue",
-		"tags": "ghcr.io/its-the-vibe/orderlyqueue:main\nghcr.io/its-the-vibe/orderlyqueue:latest\nghcr.io/its-the-vibe/orderlyqueue:sha-be87712"
+		"tags": [
+			"ghcr.io/its-the-vibe/orderlyqueue:main",
+			"ghcr.io/its-the-vibe/orderlyqueue:latest",
+			"ghcr.io/its-the-vibe/orderlyqueue:sha-be87712"
+		]
 	}`
 
 	var payload CustomImagePayload
@@ -157,9 +162,13 @@ func TestCustomImagePayloadDecodesStringTags(t *testing.T) {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
-	wantTags := "ghcr.io/its-the-vibe/orderlyqueue:main\nghcr.io/its-the-vibe/orderlyqueue:latest\nghcr.io/its-the-vibe/orderlyqueue:sha-be87712"
-	if payload.Tags != wantTags {
-		t.Errorf("Tags = %q, want %q", payload.Tags, wantTags)
+	wantTags := []string{
+		"ghcr.io/its-the-vibe/orderlyqueue:main",
+		"ghcr.io/its-the-vibe/orderlyqueue:latest",
+		"ghcr.io/its-the-vibe/orderlyqueue:sha-be87712",
+	}
+	if !reflect.DeepEqual(payload.Tags, wantTags) {
+		t.Errorf("Tags = %v, want %v", payload.Tags, wantTags)
 	}
 }
 
